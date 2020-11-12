@@ -8,7 +8,7 @@ namespace Okta.Xamarin.Example.ViewModels
 {
 	public partial class ProfileViewModel : BaseViewModel
 	{
-		public ProfileViewModel(Xamarin.Views.ProfilePage profilePage)
+		public ProfileViewModel(Xamarin.Example.Views.ProfilePage profilePage)
 		{
 			this.Page = profilePage;
 			if (Instance == null)
@@ -20,7 +20,7 @@ namespace Okta.Xamarin.Example.ViewModels
 			OktaContext.AddSignOutCompletedListener(OnSignOutCompleted);
 		}
 
-		protected Xamarin.Views.ProfilePage Page { get; }
+		protected Xamarin.Example.Views.ProfilePage Page { get; }
 
 		public static ProfileViewModel Instance { get; set; }
 
