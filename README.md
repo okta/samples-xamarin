@@ -7,7 +7,7 @@ To run this demo follow the steps in this guide.
 To create an Okta account and application do the following:
 
 1. To create an Okta account see [Developer Signup](https://developer.okta.com/signup/).
-2. In your `Okta Developer Console` add an application; follow the directions at [Set up your Application](https://developer.okta.com/docs/guides/implement-auth-code-pkce/setup-app/) and accept the defaults.
+2. In your `Okta Developer Console` add a **Native** application; follow the directions at [Set up your Application](https://developer.okta.com/docs/guides/implement-auth-code-pkce/setup-app/) and accept the defaults.
 3. In your `Okta Developer Console` register your application's login and logout redirect callbacks, see [Register Redirects](#register-redirects).
 4. Configure the demo application to use the values registered in the previous step, see [Configure Your Application](#configure-your-application).
 5. Run the demo application.
@@ -17,7 +17,7 @@ To create an Okta account and application do the following:
 To register redirect URIs do the following:
 
 1. Sign in to your `Okta Developer Console` as an administrator.
-2. Click the `Applications` tab and select your application.  If you need to set up your application see [Set up your Application](https://developer.okta.com/docs/guides/implement-auth-code-pkce/setup-app/). 
+2. Click the `Applications` tab and select your application.  If you need to set up your application, create a **Native** application following the instructions at [Set up your Application](https://developer.okta.com/docs/guides/implement-auth-code-pkce/setup-app/). 
 3. Ensure you are on the `General` tab, then go to `General Settings` and click `Edit`.
 4. Go to the `Login` section.
 5. Below `Login redirect URIs` click the `Add URI` button.
