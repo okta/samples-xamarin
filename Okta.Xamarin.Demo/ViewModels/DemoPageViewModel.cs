@@ -18,5 +18,7 @@ namespace Okta.Xamarin.Demo.ViewModels
 		public Command GoToRenewPageCommand => new Command(async () => await Shell.Current.GoToAsync(nameof(RenewPage)));
 
 		public Command GoToRevokePageCommand => new Command(async () => await Shell.Current.GoToAsync(nameof(RevokePage)));
+
+		public Command GoToSecureStoragePageCommand => new Command(async () => await Shell.Current.GoToAsync(nameof(SecureStoragePage)));
 	}
 }

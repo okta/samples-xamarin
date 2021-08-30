@@ -24,6 +24,12 @@
                     BackgroundColor="{StaticResource Primary}"
                     TextColor="White" 
             />
+            <Button Margin="0,0,0,10"
+                    Text="Secure Storage Demo >>"
+                    Command="{Binding GoToSecureStoragePageCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White" 
+            />
             <BoxView HeightRequest="1" Color="#000000" />
         </StackLayout>
     </ScrollView>
