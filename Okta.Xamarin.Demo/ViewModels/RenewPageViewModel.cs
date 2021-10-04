@@ -28,10 +28,14 @@ namespace Okta.Xamarin.Demo.ViewModels
 
 		public Command RenewCommand => new Command(async () =>
 		{
-			if(!string.IsNullOrEmpty(OktaContext.RefreshToken))
+			if (!string.IsNullOrEmpty(OktaContext.RefreshToken))
 			{
 				CheckBox refreshIdTokenCheckBox = Page?.FindByName<CheckBox>("RefreshIdTokenCheckBox");
 				_ = await OktaContext.Current.RenewAsync(refreshTokenEntry.Text, refreshIdTokenCheckBox.IsChecked);
+			}
+			else
+			{
+				await Page.DisplayAlert("offline_access", "Refresh token was not found, be sure to specify the 'offline_access' scope in your configuration.  \r\n\r\nSee, https://github.com/okta/okta-oidc-xamarin#refresh-tokens.", "OK");
 			}
 		});
 

@@ -30,6 +30,7 @@
     <IOSDebuggerPort>53039</IOSDebuggerPort>
     <MtouchSdkVersion>14.4</MtouchSdkVersion>
     <IOSDebugOverWiFi>false</IOSDebugOverWiFi>
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|iPhoneSimulator' ">
     <DebugType>none</DebugType>
@@ -143,12 +144,20 @@
     <Reference Include="System.Numerics.Vectors" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Okta.Xamarin" Version="2.0.0" />
-    <PackageReference Include="Okta.Xamarin.iOS" Version="2.0.0" />
-    <PackageReference Include="Xamarin.Forms" Version="5.0.0.2012" />
-    <PackageReference Include="Xamarin.Essentials" Version="1.6.1" />
+    <PackageReference Include="Xamarin.Forms" Version="5.0.0.2083" />
+    <PackageReference Include="Xamarin.Essentials" Version="1.7.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Okta.Xamarin.iOS\Okta.Xamarin.iOS.csproj">
+      <Project>{4d11391c-ed74-4604-91be-fa4f9c0d379b}</Project>
+      <Name>Okta.Xamarin.iOS</Name>
+      <IsAppExtension>false</IsAppExtension>
+      <IsWatchApp>false</IsWatchApp>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Okta.Xamarin\Okta.Xamarin.csproj">
+      <Project>{f4056b13-ce8c-4fd7-b079-a030a1053d33}</Project>
+      <Name>Okta.Xamarin</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Okta.Xamarin.Demo\Okta.Xamarin.Demo.csproj">
       <Project>{d82b6c59-231e-4d06-97c0-38cf6cae0540}</Project>
       <Name>Okta.Xamarin.Demo</Name>
