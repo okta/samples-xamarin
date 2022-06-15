@@ -8,9 +8,9 @@
 	<string>com.okta.xamarin.ios.logout:/callback</string>
 	<key>Scope</key>
 	<string>openid profile offline_access</string>
-	<key>ClientId</key>
-	<string>0oa11gubszVC92vkL5d7</string>
 	<key>OktaDomain</key>
-	<string>https://dev-22244764.okta.com</string>
+	<string>https://{YourOktaDomain}</string>
+	<key>ClientId</key>
+	<string>{ClientId}</string>
 </dict>
 </plist>

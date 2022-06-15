@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <Okta>
-    <ClientId>0oa11gubszVC92vkL5d7</ClientId>
-    <OktaDomain>https://dev-22244764.okta.com</OktaDomain>
+    <ClientId>{ClientId}</ClientId>
+    <OktaDomain>https://{YourOktaDomain}</OktaDomain>
     <RedirectUri>com.okta.xamarin.android.login:/callback</RedirectUri>
     <PostLogoutRedirectUri>com.okta.xamarin.android.logout:/callback</PostLogoutRedirectUri>
 </Okta>
