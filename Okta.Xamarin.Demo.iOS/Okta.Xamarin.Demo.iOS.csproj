@@ -154,6 +154,8 @@
     <ProjectReference Include="..\..\..\Okta.Xamarin.iOS\Okta.Xamarin.iOS.csproj">
       <Project>{4d11391c-ed74-4604-91be-fa4f9c0d379b}</Project>
       <Name>Okta.Xamarin.iOS</Name>
+      <IsAppExtension>false</IsAppExtension>
+      <IsWatchApp>false</IsWatchApp>
     </ProjectReference>
     <ProjectReference Include="..\..\..\Okta.Xamarin\Okta.Xamarin.csproj">
       <Project>{f4056b13-ce8c-4fd7-b079-a030a1053d33}</Project>

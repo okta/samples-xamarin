@@ -10,7 +10,7 @@ namespace Okta.Xamarin.Demo.Droid
 	[
 		IntentFilter
 		(
-			actions: new[] { Intent.ActionView },
+			actions: new[] { Intent.ActionView },		
 			Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
 			DataSchemes = new[] { "com.okta.xamarin.android.login", "com.okta.xamarin.android.logout" },
 			DataPath = "/callback"
