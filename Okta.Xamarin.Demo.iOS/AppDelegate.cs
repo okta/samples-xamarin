@@ -13,7 +13,7 @@ namespace Okta.Xamarin.Demo.iOS
 	// User Interface of the application, as well as listening (and optionally responding) to 
 	// application events from iOS.
 	[Register("AppDelegate")]
-	public partial class AppDelegate : OktaAppDelegate<OktaDemoApp>
+	public partial class AppDelegate : global::Xamarin.Forms.Platform.iOS.FormsApplicationDelegate
 	{
 		//
 		// This method is invoked when the application has loaded and is ready to run. In this 
@@ -24,17 +24,34 @@ namespace Okta.Xamarin.Demo.iOS
 		//
 		public override bool FinishedLaunching(UIApplication app, NSDictionary options)
 		{
+			global::Xamarin.Forms.Forms.SetFlags("CollectionView_Experimental");
+			global::Xamarin.Forms.Forms.Init();
+			LoadApplication(new OktaDemoApp());
+
 			bool result = base.FinishedLaunching(app, options);
+
+			//  *** OKTA ***
+			// for demo purposes go to the profile page after sign in and sign out
+			OktaContext oktaContext = OktaPlatform.InitAsync(Window.RootViewController).Result;
+			oktaContext.SignInCompleted += (sender, args) => Shell.Current.GoToAsync("//ProfilePage");
+			oktaContext.SignOutCompleted += (sender, args) => Shell.Current.GoToAsync("//ProfilePage");
+			// *** / end OKTA ***
+
 
 			// Additional logic to execute can go here if necessary
 
-			// for demo purposes go to the profile page after sign in and sign out
-			OktaContext.AddSignInCompletedListener((sender, args) => Shell.Current.GoToAsync("//ProfilePage"));
-			OktaContext.AddSignOutCompletedListener((sender, args) => Shell.Current.GoToAsync("//ProfilePage"));
-			
-			// -- /
-
 			return result;
+		}
+
+		public override bool OpenUrl
+		(
+			UIApplication application,
+			NSUrl url,
+			string sourceApplication,
+			NSObject annotation
+		)
+		{
+			return OktaPlatform.IsOktaCallback(application, url, sourceApplication, annotation);
 		}
 	}
 }
