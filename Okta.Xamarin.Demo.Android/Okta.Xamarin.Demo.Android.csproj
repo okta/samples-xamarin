@@ -60,10 +60,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Okta.Xamarin">
-      <Version>3.1.0</Version>
+      <Version>3.1.1</Version>
     </PackageReference>
     <PackageReference Include="Okta.Xamarin.Android">
-      <Version>3.1.0</Version>
+      <Version>3.1.1</Version>
     </PackageReference>
     <PackageReference Include="Xamarin.Android.Support.CustomTabs">
       <Version>28.0.0.3</Version>

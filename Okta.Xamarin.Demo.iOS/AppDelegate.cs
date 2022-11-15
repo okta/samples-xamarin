@@ -32,7 +32,7 @@ namespace Okta.Xamarin.Demo.iOS
 
 			//  *** OKTA ***
 			// for demo purposes go to the profile page after sign in and sign out
-			OktaContext oktaContext = OktaPlatform.InitAsync(Window.RootViewController).Result;
+			OktaContext oktaContext = OktaPlatform.InitAsync(Window).Result;
 			oktaContext.SignInCompleted += (sender, args) => Shell.Current.GoToAsync("//ProfilePage");
 			oktaContext.SignOutCompleted += (sender, args) => Shell.Current.GoToAsync("//ProfilePage");
 			// *** / end OKTA ***
