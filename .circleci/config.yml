@@ -57,22 +57,9 @@ jobs:
   # Build Android project  
   build-android:
     docker:
-      - image: cimg/android:2025.08.1-ndk  # Latest Android image with NDK
+      - image: cimg/android:2024.07.1-ndk  # Stable Android image with NDK and sudo/git
     resource_class: large  # Android builds need more resources
-    environment:
-      # Fix .NET host issues
-      DOTNET_ROOT: /home/circleci/.dotnet
-      DOTNET_CLI_HOME: /home/circleci/.dotnet
-      PATH: /home/circleci/.dotnet:/home/circleci/.dotnet/tools:$PATH
     steps:
-      # Install Git first - newer Android images don't include it
-      - run:
-          name: Install Git
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y git
-            git --version
-            
       - run:
           name: Configure Git for HTTPS
           command: |
@@ -84,7 +71,7 @@ jobs:
           at: .
 
       - run:
-          name: Install .NET SDK (Alternative Method)
+          name: Install .NET SDK (user-local)
           command: |
             # Use .NET install script instead of apt-get to avoid host issues
             curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 6.0 --install-dir $HOME/.dotnet
@@ -102,22 +89,14 @@ jobs:
             mkdir -p ~/.android
             echo 'count=0' > ~/.android/repositories.cfg
             
-            # Accept ALL Android SDK licenses using multiple methods
+            # Accept Android SDK licenses via multiple methods
             echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
             echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
-            echo "d975f751698a77b662f1254ddbeed3901e976f5a" > "$ANDROID_SDK_ROOT/licenses/intel-android-extra-license"
-            echo "33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > "$ANDROID_SDK_ROOT/licenses/google-gdk-license"
-            
-            # Also accept via sdkmanager
             yes | sdkmanager --licenses || true
             yes | sdkmanager --update || true
             
-            # Debug: List licenses
-            echo "=== Android SDK Licenses ==="
-            ls -la "$ANDROID_SDK_ROOT/licenses/" || echo "No licenses directory found"
-            
             # Install required Xamarin workloads
-            dotnet workload install android --skip-sign-check --verbosity diagnostic
+            dotnet workload install android --skip-sign-check --verbosity minimal
             
             # Set additional environment variables
             echo 'export ANDROID_HOME=$ANDROID_SDK_ROOT' >> $BASH_ENV
@@ -155,20 +134,18 @@ jobs:
           paths:
             - Okta.Xamarin.Demo.Android/bin
 
-  # Build iOS project on macOS
+  # Build iOS project on macOS (Intel for legacy Xamarin)
   build-ios:
     macos:
-      xcode: 16.0.0  # Latest stable Xcode
-    resource_class: macos.m1.medium.gen1
+      xcode: 14.3.1  # Intel-based Xcode image compatible with Mono/Xamarin
+    resource_class: macos.x86.medium.gen2
     steps:
       - run:
           name: Configure Git for HTTPS (macOS)
           command: |
             git config --global url."https://github.com/".insteadOf "git@github.com:"
             git config --global url."https://".insteadOf "git://"
-            # Fix for macOS SSH issues on CircleCI
             ssh-keyscan github.com >> ~/.ssh/known_hosts || true
-            
       - checkout
 
       - attach_workspace:
@@ -177,7 +154,6 @@ jobs:
       - run:
           name: Install .NET SDK on macOS
           command: |
-            # Download and install .NET SDK for macOS
             curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 6.0
             echo 'export PATH="$HOME/.dotnet:$PATH"' >> $BASH_ENV
             echo 'export DOTNET_ROOT="$HOME/.dotnet"' >> $BASH_ENV
@@ -187,61 +163,114 @@ jobs:
             dotnet --info
 
       - run:
-          name: Install iOS Workloads and Dependencies
+          name: Accept Xcode license
           command: |
-            source $BASH_ENV
-            # Install Xamarin.iOS workload specifically for legacy Xamarin projects
-            dotnet workload install ios maui --skip-sign-check --verbosity diagnostic
-            echo "=== Installed Workloads ==="
-            dotnet workload list
-            
-            # Additional step: Ensure Xamarin.iOS targets are available
-            echo "=== Checking for iOS targets ==="
-            find $DOTNET_ROOT -name "Xamarin.iOS.CSharp.targets" -type f 2>/dev/null || echo "iOS targets not found, checking workload installation..."
-            
-            # Try installing legacy Xamarin workload if targets still missing
-            if ! find $DOTNET_ROOT -name "Xamarin.iOS.CSharp.targets" -type f 2>/dev/null | grep -q .; then
-              echo "Installing additional Xamarin workloads..."
-              dotnet workload install xamarin-ios-net6 --skip-sign-check --verbosity diagnostic || true
+            sudo xcodebuild -license accept || true
+
+      - run:
+          name: Install Mono MDK (for msbuild)
+          command: |
+            brew update
+            brew install --cask mono-mdk || brew install mono || true
+            mono --version || true
+            msbuild -version || true
+
+      - run:
+          name: Install Xamarin.iOS (optional via URL)
+          command: |
+            if [ -n "${XAMARIN_IOS_PKG_URL:-}" ]; then
+              echo "Downloading Xamarin.iOS from $XAMARIN_IOS_PKG_URL"
+              curl -L "$XAMARIN_IOS_PKG_URL" -o xamarin.ios.pkg
+              sudo installer -pkg xamarin.ios.pkg -target /
+            else
+              echo "XAMARIN_IOS_PKG_URL not set; skipping Xamarin.iOS installation"
             fi
 
       - run:
-          name: Analyze iOS Project and Build
+          name: Install iOS workload packs
           command: |
-            source $BASH_ENV
-            echo "=== iOS Project Analysis ==="
-            head -20 ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj
-            
-            echo "=== Available SDK Packs ==="
-            ls -la $DOTNET_ROOT/packs/ || echo "No packs directory found"
-            
-            echo "=== Attempting iOS Build with fallback strategies ==="
-            
-            # Strategy 1: Try direct msbuild approach first
-            echo "Strategy 1: Direct MSBuild approach..."
-            if dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity diagnostic -p:Platform=iPhoneSimulator -p:BuildIpa=false; then
-              echo "✅ iOS project built successfully with direct MSBuild"
+            source "$BASH_ENV"
+            dotnet workload install ios --skip-sign-check --verbosity minimal
+            dotnet workload list
+
+      - run:
+          name: Locate Xamarin.iOS targets and configure MSBuild
+          command: |
+            set -euo pipefail
+            # Try typical Xamarin.iOS targets locations
+            IOS_TARGETS=""
+            for p in \
+              "/Library/Frameworks/Mono.framework/External/xbuild/Xamarin/iOS/Xamarin.iOS.CSharp.targets" \
+              "/Library/Frameworks/Xamarin.iOS.framework/Versions/Current/lib/mono/msbuild/Xamarin.iOS/Xamarin.iOS.CSharp.targets"; do
+              if [ -f "$p" ]; then IOS_TARGETS="$p"; break; fi
+            done
+
+            if [ -n "$IOS_TARGETS" ]; then
+              echo "Found Xamarin.iOS targets at: $IOS_TARGETS"
+              IOS_MSBUILD_DIR="$(dirname "$IOS_TARGETS")"
+              # Set MSBuildExtensionsPath to xbuild root so $(MSBuildExtensionsPath)\Xamarin\iOS resolves correctly
+              echo "export MSBuildExtensionsPath=$(cd "$IOS_MSBUILD_DIR/../.." && pwd)" >> "$BASH_ENV"
+              echo "export MSBuildSDKsPath=/Library/Frameworks/Mono.framework/External/xbuild/SDKs" >> "$BASH_ENV"
+              source "$BASH_ENV"
             else
-              echo "Strategy 1 failed, trying Strategy 2..."
-              
-              # Strategy 2: Try with explicit framework
-              echo "Strategy 2: Explicit framework approach..."
-              if dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity diagnostic --framework net6.0-ios -p:Platform=iPhoneSimulator; then
-                echo "✅ iOS project built successfully with explicit framework"
+              echo "Xamarin.iOS targets not found in system paths. Attempting to bridge from .NET packs..."
+              source "$BASH_ENV"
+              SDKDIR="$(dirname "$MSBuildSDKsPath")"
+              IOS_TARGETS_DIR="$(find "$DOTNET_ROOT/packs" -type f -name Xamarin.iOS.CSharp.targets -print -quit | xargs dirname || true)"
+              if [ -z "$IOS_TARGETS_DIR" ]; then
+                echo "❌ Could not locate Xamarin.iOS.CSharp.targets in .NET packs"
               else
-                echo "Strategy 2 failed, trying Strategy 3..."
-                
-                # Strategy 3: Try restoring first, then building
-                echo "Strategy 3: Restore then build approach..."
-                dotnet restore ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --verbosity diagnostic
-                if dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity diagnostic; then
-                  echo "✅ iOS project built successfully with restore-first approach"
+                echo "Using iOS MSBuild dir from packs: $IOS_TARGETS_DIR"
+                mkdir -p "$SDKDIR/Xamarin"
+                rm -f "$SDKDIR/Xamarin/iOS" || true
+                ln -s "$IOS_TARGETS_DIR" "$SDKDIR/Xamarin/iOS"
+                ls -al "$SDKDIR/Xamarin/iOS"/Xamarin.iOS.CSharp.targets || true
+              fi
+            fi
+
+      - run:
+          name: Restore iOS packages
+          command: |
+            source "$BASH_ENV"
+            nuget restore ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj || true
+            dotnet restore ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --verbosity minimal || true
+
+      - run:
+          name: Build iOS Project (Simulator) with fallbacks
+          command: |
+            set -e
+            source "$BASH_ENV"
+            echo "=== iOS Project Analysis ==="
+            head -20 ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj || true
+
+            echo "Trying msbuild (Mono) first..."
+            if command -v msbuild >/dev/null 2>&1; then
+              if msbuild ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj \
+                /t:Restore,Build \
+                /p:Configuration=Release \
+                /p:Platform=iPhoneSimulator \
+                /verbosity:minimal; then
+                echo "✅ iOS project built successfully with Mono msbuild"
+              else
+                echo "Mono msbuild failed, trying dotnet build strategies..."
+                if dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity minimal -p:Platform=iPhoneSimulator -p:BuildIpa=false; then
+                  echo "✅ iOS project built successfully with dotnet build"
+                elif dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity minimal --framework net6.0-ios -p:Platform=iPhoneSimulator; then
+                  echo "✅ iOS project built successfully with explicit framework"
                 else
                   echo "❌ All iOS build strategies failed"
-                  echo "=== Detailed Diagnostics ==="
-                  find $DOTNET_ROOT -name "*Xamarin*" -type f | head -20
                   exit 1
                 fi
+              fi
+            else
+              echo "msbuild not found, trying dotnet build strategies..."
+              if dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity minimal -p:Platform=iPhoneSimulator -p:BuildIpa=false; then
+                echo "✅ iOS project built successfully with dotnet build"
+              elif dotnet build ./Okta.Xamarin.Demo.iOS/Okta.Xamarin.Demo.iOS.csproj --configuration Release --verbosity minimal --framework net6.0-ios -p:Platform=iPhoneSimulator; then
+                echo "✅ iOS project built successfully with explicit framework"
+              else
+                echo "❌ All iOS build strategies failed"
+                exit 1
               fi
             fi
 

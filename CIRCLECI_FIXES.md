@@ -120,6 +120,16 @@ To validate the fixes:
 - ✅ Artifact generation and collection
 - ✅ Malware scanner integration
 
+## Latest Updates
+
+- iOS builds now run on Intel macOS image `xcode: 14.3.1` with `resource_class: macos.x86.medium.gen2` for best compatibility with legacy Xamarin projects.
+- Installed Mono MDK via Homebrew to provide `msbuild` compatible with Xamarin targets.
+- Optional installation of Xamarin.iOS via `XAMARIN_IOS_PKG_URL` environment variable, if a signed package URL is provided by Security/IT.
+- Bridged legacy `$(MSBuildExtensionsPath)\Xamarin\iOS` resolution by setting `MSBuildExtensionsPath` and `MSBuildSDKsPath`, and symlinking to the iOS targets when needed.
+- Android executor pinned to `cimg/android:2024.07.1-ndk` which includes `sudo` and `git`, avoiding failures seen on newer images.
+- All .NET SDK installs use the official dotnet-install.sh user-local method; no sudo required.
+- iOS build uses msbuild first (preferred for legacy Xamarin), with resilient fallbacks to `dotnet build`.
+
 ## Next Steps
 
 1. Monitor the next CircleCI build for successful completion
