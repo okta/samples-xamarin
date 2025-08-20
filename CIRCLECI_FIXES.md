@@ -122,10 +122,10 @@ To validate the fixes:
 
 ## Latest Updates
 
-- iOS builds now run on Intel macOS image `xcode: 14.3.1` with `resource_class: macos.x86.medium.gen2` for best compatibility with legacy Xamarin projects.
+- iOS builds now run on Apple Silicon macOS with `resource_class: macos.m1.medium.gen1` and `xcode: 14.3.1` (Intel resource classes are deprecated by CircleCI).
 - Installed Mono MDK via Homebrew to provide `msbuild` compatible with Xamarin targets.
 - Optional installation of Xamarin.iOS via `XAMARIN_IOS_PKG_URL` environment variable, if a signed package URL is provided by Security/IT.
-- Bridged legacy `$(MSBuildExtensionsPath)\Xamarin\iOS` resolution by setting `MSBuildExtensionsPath` and `MSBuildSDKsPath`, and symlinking to the iOS targets when needed.
+- Bridged legacy `$(MSBuildExtensionsPath)\Xamarin\iOS` and `$(MSBuildExtensionsPath)\Xamarin\Android` by setting `MSBuildExtensionsPath` and `MSBuildSDKsPath`, and symlinking from .NET packs when needed.
 - Android executor pinned to `cimg/android:2024.07.1-ndk` which includes `sudo` and `git`, avoiding failures seen on newer images.
 - All .NET SDK installs use the official dotnet-install.sh user-local method; no sudo required.
 - iOS build uses msbuild first (preferred for legacy Xamarin), with resilient fallbacks to `dotnet build`.

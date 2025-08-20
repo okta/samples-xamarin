@@ -111,17 +111,70 @@ jobs:
             dotnet --info
 
       - run:
+          name: Install Mono and MSBuild (for legacy Xamarin)
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y ca-certificates apt-transport-https dirmngr gnupg curl software-properties-common
+            sudo mkdir -p /etc/apt/keyrings
+            curl -fsSL https://download.mono-project.com/repo/xamarin.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/mono-official.gpg
+            echo "deb [signed-by=/etc/apt/keyrings/mono-official.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main" | sudo tee /etc/apt/sources.list.d/mono-official-stable.list
+            sudo apt-get update
+            sudo apt-get install -y mono-complete msbuild nuget
+            mono --version || true
+            msbuild -version || true
+
+      - run:
+          name: Bridge Xamarin.Android legacy targets to .NET packs
+          command: |
+            set -euo pipefail
+            source $BASH_ENV
+            TARGET_FILE="$(find "$DOTNET_ROOT/packs" -type f -name Xamarin.Android.CSharp.targets -print -quit || true)"
+            if [ -z "$TARGET_FILE" ]; then
+              echo "❌ Xamarin.Android.CSharp.targets not found in .NET packs."
+              echo "Listing possible Android packs for debugging:" && find "$DOTNET_ROOT/packs" -maxdepth 2 -type d -name "Microsoft.Android*" || true
+            else
+              echo "Found Xamarin.Android.CSharp.targets at: $TARGET_FILE"
+              LEGACY_DIR="$HOME/legacy_xamarin/MSBuild/Xamarin/Android"
+              mkdir -p "$LEGACY_DIR"
+              ln -s "$(dirname "$TARGET_FILE")" "$LEGACY_DIR"/.
+              echo "export MSBuildExtensionsPath=$(dirname $(dirname "$LEGACY_DIR"))" >> "$BASH_ENV"
+              echo "export MSBuildSDKsPath=$DOTNET_ROOT/sdk/$(ls $DOTNET_ROOT/sdk | head -1)/Sdks" >> "$BASH_ENV"
+              source "$BASH_ENV"
+              ls -al "$LEGACY_DIR" || true
+            fi
+
+      - run:
           name: Restore Android packages
           command: |
             source $BASH_ENV
-            dotnet restore ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj --verbosity normal
+            nuget restore ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj || true
+            dotnet restore ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj --verbosity normal || true
 
       - run:
-          name: Build Android Project
+          name: Build Android Project (try msbuild, then dotnet)
           command: |
+            set -e
             source $BASH_ENV
-            dotnet build ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj --configuration Release --verbosity normal
-            echo "✅ Android project built successfully"
+            echo "=== Android Project Analysis ==="
+            head -40 ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj || true
+
+            if command -v msbuild >/dev/null 2>&1; then
+              echo "Trying Mono msbuild..."
+              if msbuild ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj \
+                /t:Restore,Build \
+                /p:Configuration=Release \
+                /verbosity:minimal; then
+                echo "✅ Android project built successfully with Mono msbuild"
+              else
+                echo "Mono msbuild failed, trying dotnet build..."
+                dotnet build ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj --configuration Release --verbosity normal
+                echo "✅ Android project built successfully with dotnet build"
+              fi
+            else
+              echo "msbuild not found, using dotnet build..."
+              dotnet build ./Okta.Xamarin.Demo.Android/Okta.Xamarin.Demo.Android.csproj --configuration Release --verbosity normal
+              echo "✅ Android project built successfully with dotnet build"
+            fi
 
       - run:
           name: List Android Artifacts
@@ -134,17 +187,19 @@ jobs:
           paths:
             - Okta.Xamarin.Demo.Android/bin
 
-  # Build iOS project on macOS (Intel for legacy Xamarin)
+  # Build iOS project on macOS (Apple Silicon)
   build-ios:
     macos:
-      xcode: 14.3.1  # Intel-based Xcode image compatible with Mono/Xamarin
-    resource_class: macos.x86.medium.gen2
+      xcode: 14.3.1  # Apple Silicon supported per CircleCI docs
+    resource_class: macos.m1.medium.gen1
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - run:
           name: Configure Git for HTTPS (macOS)
           command: |
             git config --global url."https://github.com/".insteadOf "git@github.com:"
-            git config --global url."https://".insteadOf "git://"
+            git config --global url."https://".InsteadOf "git://" || git config --global url."https://".insteadOf "git://"
             ssh-keyscan github.com >> ~/.ssh/known_hosts || true
       - checkout
 
@@ -170,7 +225,6 @@ jobs:
       - run:
           name: Install Mono MDK (for msbuild)
           command: |
-            brew update
             brew install --cask mono-mdk || brew install mono || true
             mono --version || true
             msbuild -version || true
@@ -197,6 +251,7 @@ jobs:
           name: Locate Xamarin.iOS targets and configure MSBuild
           command: |
             set -euo pipefail
+            source "$BASH_ENV"
             # Try typical Xamarin.iOS targets locations
             IOS_TARGETS=""
             for p in \
@@ -214,17 +269,19 @@ jobs:
               source "$BASH_ENV"
             else
               echo "Xamarin.iOS targets not found in system paths. Attempting to bridge from .NET packs..."
-              source "$BASH_ENV"
-              SDKDIR="$(dirname "$MSBuildSDKsPath")"
               IOS_TARGETS_DIR="$(find "$DOTNET_ROOT/packs" -type f -name Xamarin.iOS.CSharp.targets -print -quit | xargs dirname || true)"
               if [ -z "$IOS_TARGETS_DIR" ]; then
                 echo "❌ Could not locate Xamarin.iOS.CSharp.targets in .NET packs"
               else
                 echo "Using iOS MSBuild dir from packs: $IOS_TARGETS_DIR"
-                mkdir -p "$SDKDIR/Xamarin"
-                rm -f "$SDKDIR/Xamarin/iOS" || true
-                ln -s "$IOS_TARGETS_DIR" "$SDKDIR/Xamarin/iOS"
-                ls -al "$SDKDIR/Xamarin/iOS"/Xamarin.iOS.CSharp.targets || true
+                SDKDIR_BASE="/Library/Frameworks/Mono.framework/External/xbuild"
+                mkdir -p "$SDKDIR_BASE/Xamarin"
+                rm -f "$SDKDIR_BASE/Xamarin/iOS" || true
+                ln -s "$IOS_TARGETS_DIR" "$SDKDIR_BASE/Xamarin/iOS"
+                echo "export MSBuildExtensionsPath=$SDKDIR_BASE" >> "$BASH_ENV"
+                echo "export MSBuildSDKsPath=$SDKDIR_BASE/SDKs" >> "$BASH_ENV"
+                source "$BASH_ENV"
+                ls -al "$SDKDIR_BASE/Xamarin/iOS"/Xamarin.iOS.CSharp.targets || true
               fi
             fi
 
